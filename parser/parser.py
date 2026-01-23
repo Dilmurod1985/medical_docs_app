@@ -1,47 +1,29 @@
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
 class MedicalDocumentParser:
     def __init__(self):
-        # Ищем форматы: ДД.ММ.ГГГГ, ДД/ММ/ГГГГ, ДД.ММ.ГГ
-        self.date_pattern = re.compile(r'(\b\d{1,2}[.\/]\d{1,2}[.\/]\d{2,4}\b)')
+        pass
 
-    def parse(self, ocr_results):
-        parsed_data = {
-            'examination_date': None,
-            'next_visit_date': None,
-            'raw_text': ""
-        }
+    def parse(self, ocr_data):
+        # Объединяем весь текст в одну строку для поиска
+        full_text = " ".join([item['text'] for item in ocr_data])
         
-        all_text = " ".join([item['text'] for item in ocr_results])
-        parsed_data['raw_text'] = all_text
+        # 1. Ищем ФИО (ищем слова с заглавной буквы, например "Иванов Иван")
+        name_match = re.search(r'([А-ЯЁ][а-яё]+\s+[А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+)?)', full_text)
+        fio = name_match.group(1) if name_match else "Не найдено"
+
+        # 2. Ищем дату осмотра (формат 23.01.2026 или 23/01/2026)
+        date_pattern = r'(\d{2}[.\/]\d{2}[.\/]\d{4})'
+        dates = re.findall(date_pattern, full_text)
         
-        found_dates = self.date_pattern.findall(all_text)
-        
-        valid_dates = []
-        for date_str in found_dates:
+        exam_date_str = dates[0] if dates else None
+        next_visit_str = "Не рассчитано"
+
+        if exam_date_str:
             try:
-                # Очищаем строку и пытаемся превратить в дату
-                clean_date_str = date_str.replace('/', '.')
-                if len(clean_date_str.split('.')[-1]) == 2:
-                    dt = datetime.strptime(clean_date_str, '%d.%m.%y')
-                else:
-                    dt = datetime.strptime(clean_date_str, '%d.%m.%Y')
-                
-                # Игнорируем даты рождения (условно всё, что раньше 2010 года)
-                if dt.year > 2010:
-                    valid_dates.append(dt)
-            except:
-                continue
-        
-        if valid_dates:
-            # Берем самую последнюю дату (самый свежий осмотр)
-            latest_date = max(valid_dates)
-            parsed_data['examination_date'] = latest_date.strftime('%d.%m.%Y')
-            
-            # Твое правило: осмотр каждые полгода (+6 месяцев)
-            next_visit = latest_date + relativedelta(months=6)
-            parsed_data['next_visit_date'] = next_visit.strftime('%d.%m.%Y')
-            
-        return parsed_data
+                # Превращаем текст в дату и прибавляем 6 месяцев
+                dt = datetime.strptime(exam_date_str.replace('/', '.'), '%d.%m.%Y')
+                next_visit_dt = dt + relativedelta(months=6)
+                next_visit_str = next_visit_dt.strftime('%d.%m.%
