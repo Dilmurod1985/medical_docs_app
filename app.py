@@ -9,7 +9,6 @@ import tempfile
 
 # Добавляем корневую директорию проекта в sys.path
 sys.path.append(str(Path(__file__).parent))
-
 from utils.image_preprocessing import preprocess_image
 from ocr.ocr_engine import OCREngine
 from parser.parser import MedicalDocumentParser
@@ -295,6 +294,7 @@ st.markdown(
     "</div>",
     unsafe_allow_html=True
 )
+
 
 
 
