@@ -5,6 +5,19 @@ from PIL import Image
 from ocr.ocr_engine import OCREngine
 from parser.parser import MedicalDocumentParser
 from exporter.exporter import ExcelExporter
+from utils.image_preprocessing import preprocess_for_ocr
+
+# ... твой код загрузки файлов ...
+if uploaded_files:
+    for uploaded_file in uploaded_files:
+        image_bytes = uploaded_file.getvalue()
+        processed_img = preprocess_for_ocr(image_bytes)
+
+        # Теперь используй processed_img вместо оригинала
+        reader = easyocr.Reader(['ru', 'uz'])
+        results = reader.readtext(np.array(processed_img), detail=0)
+        full_text = " ".join(results)
+        st.write("Извлечённый текст:", full_text)
 
 st.set_page_config(page_title="Medical Scan", layout="wide")
 st.title("🏥 Система обработки медосмотров")
@@ -45,3 +58,4 @@ if files:
     if not df.empty:
         excel_data = exporter.export_to_excel(df)
         st.download_button("📥 Скачать Excel отчет", data=excel_data, file_name="report.xlsx")
+
