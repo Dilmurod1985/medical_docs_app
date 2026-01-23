@@ -3,7 +3,7 @@ import numpy as np
 from typing import List, Dict, Tuple
 
 class OCREngine:
-    def __init__(self, languages=['uz', 'ru']):
+    def __init__(self, languages=['uz', 'ru', 'en']):
         """
         Инициализация OCR движка EasyOCR
         
