@@ -67,20 +67,23 @@ if uploaded_files:
 
     status_text.text("Обработка завершена!")
 
-    if results:
-        # Показываем таблицу
-        df = pd.DataFrame(results)
-        st.subheader("Результаты")
-        st.dataframe(df)
+   if results:
+    # Показываем таблицу
+    df = pd.DataFrame(results)
+    st.subheader("Результаты")
+    st.dataframe(df)
 
-        # Скачивание Excel
-        excel_data = create_excel_file(df)
-        st.download_button(
-            label="Скачать Excel отчет",
-            data=excel_data,
-            file_name="medical_books_report.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+    # Скачивание Excel
+    exporter = ExcelExporter()
+    excel_data = exporter.export_to_excel(df)  # ← df здесь уже существует
+
+    st.download_button(
+        label="Скачать Excel отчет",
+        data=excel_data,
+        file_name="medical_books_report.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
 
 
 
