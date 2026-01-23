@@ -11,7 +11,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '.')))
 
 from ocr.ocr_engine import OCREngine
 from parser.parser import MedicalDocumentParser
-from exporter.exporter import ExcelExporter
+try:
+    from exporter.exporter import ExcelExporter
+except ImportError:
+    from exporter import ExcelExporter
 
 st.set_page_config(page_title="Система обработки медкнижек", layout="wide")
 
@@ -59,3 +62,4 @@ if uploaded_files:
             file_name=f"med_osmotr_{pd.to_datetime('today').strftime('%Y%m%d')}.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
