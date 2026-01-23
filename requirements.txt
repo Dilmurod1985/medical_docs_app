@@ -1,7 +1,10 @@
 streamlit
 easyocr
-pandas
 opencv-python-headless
+pillow
+numpy
+pandas
 openpyxl
-python-dateutil
-xlsxwriter
+torch --index-url https://download.pytorch.org/whl/cpu  # если используешь CPU-версию
+torchvision --index-url https://download.pytorch.org/whl/cpu
+torchaudio --index-url https://download.pytorch.org/whl/cpu
