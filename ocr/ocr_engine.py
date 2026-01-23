@@ -3,7 +3,7 @@ import numpy as np
 from typing import List, Dict, Tuple
 
 class OCREngine:
-   def __init__(self, languages=['ru', 'en']):
+      def __init__(self, languages=['ru', 'en']):
         """
         Инициализация OCR движка EasyOCR
         
@@ -13,7 +13,7 @@ class OCREngine:
         self.reader = easyocr.Reader(languages, gpu=False)
         self.languages = languages
     
-    def extract_text(self, image: np.ndarray) -> List[Dict]:
+       def extract_text(self, image: np.ndarray) -> List[Dict]:
         """
         Извлекает текст из изображения
         
