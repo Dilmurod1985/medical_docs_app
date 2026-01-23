@@ -2,66 +2,58 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 from PIL import Image
-import sys
-import os
+from ocr.ocr_engine import OCREngine
+from parser.parser import MedicalDocumentParser
+from exporter.exporter import ExcelExporter
 
-# Пытаемся подключить твои модули
-try:
-    from ocr.ocr_engine import OCREngine
-    from parser.parser import MedicalDocumentParser
-    from exporter.exporter import ExcelExporter
-except ImportError as e:
-    st.error(f"Ошибка загрузки модулей: {e}. Проверьте наличие папок ocr, parser и exporter.")
+st.set_page_config(page_title="Medical Docs", layout="wide")
+st.title("🏥 Автоматизация медосмотров")
 
-st.set_page_config(page_title="Медосмотры", layout="wide")
+# Инициализация инструментов
+ocr_tool = OCREngine()
+parser_tool = MedicalDocumentParser()
+exporter_tool = ExcelExporter()
 
-st.title("🏥 Система медосмотров")
-st.write(f"Сегодня: {pd.to_datetime('today').strftime('%d.%m.%Y')}")
+uploaded_files = st.file_uploader("Загрузите фото документов", accept_multiple_files=True)
 
-# Проверка наличия инструментов
-try:
-    ocr_engine = OCREngine()
-    parser = MedicalDocumentParser()
-    exporter = ExcelExporter()
-    
-    # ВОТ ЭТА КНОПКА ДОЛЖНА ПОЯВИТЬСЯ:
-    uploaded_files = st.file_uploader("Выберите фото медкнижек", accept_multiple_files=True, type=['jpg', 'jpeg', 'png'])
+if uploaded_files:
+    results = []
+    for uploaded_file in uploaded_files:
+        with st.spinner(f'Обработка {uploaded_file.name}...'):
+            # Чтение фото
+            image = Image.open(uploaded_file)
+            img_array = np.array(image.convert('RGB'))
+            
+            # OCR + Парсинг
+            raw_text = ocr_tool.extract_text(img_array)
+            data = parser_tool.parse(raw_text)
+            
+            # Сопоставление колонок (используем .get чтобы не было KeyError)
+            results.append({
+                "ИД сотрудника": data.get("id"),
+                "ФИО": data.get("fio"),
+                "Статус медосмотра годен/не годен": data.get("status"),
+                "Дата медосмотра": data.get("exam_date"),
+                "След. Дата медосмотра": data.get("next_date"),
+                "Серия документа": data.get("seria"),
+                "Номер документа": data.get("nomer"),
+                "Выдано": data.get("org"),
+                "Дата выдачи": data.get("issue_date"),
+                "Дата начала действия": data.get("issue_date"),
+                "Дата истечения": data.get("next_date")
+            })
 
-    if uploaded_files:
-        results = []
-        for uploaded_file in uploaded_files:
-            with st.spinner(f'Обрабатываем {uploaded_file.name}...'):
-                image = Image.open(uploaded_file)
-                img_array = np.array(image.convert('RGB'))
-                
-                ocr_data = ocr_engine.extract_text(img_array)
-                parsed_data = parser.parse(ocr_data)
-                results.append({
-            "ИД сотрудника": parsed_data["ИД сотрудника"],
-            "ФИО": parsed_data["ФИО"],
-            "Статус медосмотра годен/не годен": parsed_data["Статус медосмотра"],
-            "Дата медосмотра": parsed_data["Дата медосмотра"],
-            "След. Дата медосмотра": parsed_data["След. Дата медосмотра"],
-            "Серия документа": parsed_data["Серия документа"],
-            "Номер документа": parsed_data["Номер документа"],
-            "Выдано": parsed_data["Выдано"],
-            "Дата выдачи": parsed_data["Дата выдачи"],
-            "Дата начала действия": parsed_data["Дата начала действия"],
-            "Дата истечения": parsed_data["Дата истечения"]
-        })
+    # Создаем таблицу
+    df = pd.DataFrame(results)
+    st.success("Обработка завершена!")
+    st.table(df)
 
-        df = pd.DataFrame(results)
-        st.table(df)
-
-        if not df.empty:
-            excel_data = exporter.export_to_excel(df)
-            st.download_button(
-                label="📥 Скачать Excel",
-                data=excel_data,
-                file_name="report.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-except NameError:
-    st.warning("Приложение настраивается. Подождите немного...")
-
-
+    # Кнопка скачивания
+    if not df.empty:
+        excel_file = exporter_tool.export_to_excel(df)
+        st.download_button(
+            label="📥 Скачать Excel отчет",
+            data=excel_file,
+            file_name="med_report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
