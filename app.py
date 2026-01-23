@@ -1,61 +1,80 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
 from PIL import Image
-from ocr.ocr_engine import OCREngine
-from parser.parser import MedicalDocumentParser
-from exporter.exporter import ExcelExporter
-from utils.image_preprocessing import preprocess_for_ocr
+import io
+import pandas as pd
 
-# ... твой код загрузки файлов ...
+# Импортируем свои модули
+from utils.image_preprocessing import preprocess_image
+from ocr.ocr_engine import get_ocr_reader, extract_text_from_image
+from parser.medical_parser import parse_medical_text
+from exporter.excel_exporter import create_excel_file
+
+st.set_page_config(
+    page_title="Система обработки медкнижек",
+    page_icon="🏥",
+    layout="wide"
+)
+
+st.title("🏥 Система обработки медицинских книжек")
+
+st.markdown("""
+Загружайте фото страниц медкнижки. Система извлечёт данные и подготовит таблицу для скачивания в Excel.
+""")
+
+# Загрузка файлов
+uploaded_files = st.file_uploader(
+    "Загрузите страницы медкнижки (jpg, png)",
+    type=["jpg", "jpeg", "png"],
+    accept_multiple_files=True
+)
+
+results = []
+
 if uploaded_files:
-    for uploaded_file in uploaded_files:
-        image_bytes = uploaded_file.getvalue()
-        processed_img = preprocess_for_ocr(image_bytes)
+    progress_bar = st.progress(0)
+    status_text = st.empty()
 
-        # Теперь используй processed_img вместо оригинала
-        reader = easyocr.Reader(['ru', 'uz'])
-        results = reader.readtext(np.array(processed_img), detail=0)
-        full_text = " ".join(results)
-        st.write("Извлечённый текст:", full_text)
+    for idx, uploaded_file in enumerate(uploaded_files):
+        status_text.text(f"Обработка файла {idx+1}/{len(uploaded_files)}: {uploaded_file.name}")
 
-st.set_page_config(page_title="Medical Scan", layout="wide")
-st.title("🏥 Система обработки медосмотров")
+        try:
+            # Читаем байты
+            bytes_data = uploaded_file.getvalue()
 
-# Инициализация
-ocr = OCREngine()
-parser = MedicalDocumentParser()
-exporter = ExcelExporter()
+            # Предобработка
+            processed_img = preprocess_image(bytes_data)
 
-files = st.file_uploader("Загрузите фотографии", accept_multiple_files=True)
+            # OCR
+            reader = get_ocr_reader()
+            raw_text = extract_text_from_image(reader, processed_img)
 
-if files:
-    results = []
-    for f in files:
-        with st.spinner(f'Обработка {f.name}...'):
-            img = np.array(Image.open(f).convert('RGB'))
-            text_data = ocr.extract_text(img)
-            data = parser.parse(text_data)
-            
-            # Сопоставляем данные с твоей таблицей
-            results.append({
-                "ИД сотрудника": data.get("id"),
-                "ФИО": data.get("fio"),
-                "Статус медосмотра годен/не годен": "годен",
-                "Дата медосмотра": data.get("exam_date"),
-                "След. Дата медосмотра": data.get("next_date"),
-                "Серия документа": "ТК",
-                "Номер документа": data.get("doc_num"),
-                "Выдано": "Тиббий кўрик МЧЖ",
-                "Дата выдачи": data.get("exam_date"),
-                "Дата начала действия": data.get("exam_date"),
-                "Дата истечения": data.get("next_date")
-            })
+            # Парсинг
+            parsed_data = parse_medical_text(raw_text)
 
-    df = pd.DataFrame(results)
-    st.table(df)
+            # Добавляем имя файла для удобства
+            parsed_data["Файл"] = uploaded_file.name
 
-    if not df.empty:
-        excel_data = exporter.export_to_excel(df)
-        st.download_button("📥 Скачать Excel отчет", data=excel_data, file_name="report.xlsx")
+            results.append(parsed_data)
 
+        except Exception as e:
+            st.error(f"Ошибка обработки {uploaded_file.name}: {str(e)}")
+            continue
+
+        progress_bar.progress((idx + 1) / len(uploaded_files))
+
+    status_text.text("Обработка завершена!")
+
+    if results:
+        # Показываем таблицу
+        df = pd.DataFrame(results)
+        st.subheader("Результаты")
+        st.dataframe(df)
+
+        # Скачивание Excel
+        excel_data = create_excel_file(df)
+        st.download_button(
+            label="Скачать Excel отчет",
+            data=excel_data,
+            file_name="medical_books_report.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
