@@ -53,13 +53,18 @@ if uploaded_files:
     df = pd.DataFrame(results)
     st.table(df)
 
-    # Кнопка Excel
+   # Кнопка Excel
     if not df.empty:
-        excel_data = exporter.export_to_excel(df)
-        st.download_button(
-            label="📥 Скачать отчет в Excel",
-            data=excel_data,
-            file_name=f"med_osmotr_{pd.to_datetime('today').strftime('%Y%m%d')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        try:
+            # Вызываем метод через созданный объект exporter
+            excel_data = exporter.export_to_excel(df)
+            st.download_button(
+                label="📥 Скачать отчет в Excel",
+                data=excel_data,
+                file_name=f"med_osmotr_{pd.to_datetime('today').strftime('%Y%m%d')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
+        except Exception as e:
+            st.error(f"Ошибка при создании Excel: {e}")
+
 
