@@ -7,41 +7,41 @@ from parser.parser import MedicalDocumentParser
 from exporter.exporter import ExcelExporter
 
 st.set_page_config(page_title="Medical Scan", layout="wide")
-st.title("🏥 Автоматизация медосмотров")
+st.title("🏥 Система обработки медосмотров")
 
-# Загружаем инструменты
+# Инициализация
 ocr = OCREngine()
-p = MedicalDocumentParser()
-ex = ExcelExporter()
+parser = MedicalDocumentParser()
+exporter = ExcelExporter()
 
-files = st.file_uploader("Загрузите фото документов", accept_multiple_files=True)
+files = st.file_uploader("Загрузите фотографии", accept_multiple_files=True)
 
 if files:
-    all_rows = []
+    results = []
     for f in files:
-        with st.spinner(f'Анализируем {f.name}...'):
+        with st.spinner(f'Обработка {f.name}...'):
             img = np.array(Image.open(f).convert('RGB'))
             text_data = ocr.extract_text(img)
-            res = p.parse(text_data)
+            data = parser.parse(text_data)
             
-            # Собираем строку строго по твоему шаблону
-            all_rows.append({
-                "ИД сотрудника": res.get("id", ""),
-                "ФИО": res.get("fio", "Не найдено"),
+            # Сопоставляем данные с твоей таблицей
+            results.append({
+                "ИД сотрудника": data.get("id"),
+                "ФИО": data.get("fio"),
                 "Статус медосмотра годен/не годен": "годен",
-                "Дата медосмотра": res.get("exam_date", ""),
-                "След. Дата медосмотра": res.get("next_date", ""),
+                "Дата медосмотра": data.get("exam_date"),
+                "След. Дата медосмотра": data.get("next_date"),
                 "Серия документа": "ТК",
-                "Номер документа": res.get("nomer", ""),
+                "Номер документа": data.get("doc_num"),
                 "Выдано": "Тиббий кўрик МЧЖ",
-                "Дата выдачи": res.get("exam_date", ""),
-                "Дата начала действия": res.get("exam_date", ""),
-                "Дата истечения": res.get("next_date", "")
+                "Дата выдачи": data.get("exam_date"),
+                "Дата начала действия": data.get("exam_date"),
+                "Дата истечения": data.get("next_date")
             })
 
-    df = pd.DataFrame(all_rows)
+    df = pd.DataFrame(results)
     st.table(df)
 
     if not df.empty:
-        xlsx = ex.export_to_excel(df)
-        st.download_button("📥 Скачать Excel отчет", data=xlsx, file_name="report.xlsx")
+        excel_data = exporter.export_to_excel(df)
+        st.download_button("📥 Скачать Excel отчет", data=excel_data, file_name="report.xlsx")
