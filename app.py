@@ -36,12 +36,19 @@ try:
                 
                 ocr_data = ocr_engine.extract_text(img_array)
                 parsed_data = parser.parse(ocr_data)
-                
                 results.append({
-                    "Файл": uploaded_file.name,
-                    "Дата осмотра": parsed_data.get('examination_date', 'Не найдено'),
-                    "Следующий осмотр": parsed_data.get('next_visit_date', 'Не рассчитано')
-                })
+            "ИД сотрудника": parsed_data["ИД сотрудника"],
+            "ФИО": parsed_data["ФИО"],
+            "Статус медосмотра годен/не годен": parsed_data["Статус медосмотра"],
+            "Дата медосмотра": parsed_data["Дата медосмотра"],
+            "След. Дата медосмотра": parsed_data["След. Дата медосмотра"],
+            "Серия документа": parsed_data["Серия документа"],
+            "Номер документа": parsed_data["Номер документа"],
+            "Выдано": parsed_data["Выдано"],
+            "Дата выдачи": parsed_data["Дата выдачи"],
+            "Дата начала действия": parsed_data["Дата начала действия"],
+            "Дата истечения": parsed_data["Дата истечения"]
+        })
 
         df = pd.DataFrame(results)
         st.table(df)
@@ -56,4 +63,5 @@ try:
             )
 except NameError:
     st.warning("Приложение настраивается. Подождите немного...")
+
 
