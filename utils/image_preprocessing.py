@@ -1,52 +1,33 @@
 import cv2
 import numpy as np
 from PIL import Image
+import io
 
-def preprocess_image(image_path):
+def preprocess_for_ocr(image_bytes):
     """
-    Применяет адаптивный порог для очистки фото от теней
-    
-    Args:
-        image_path (str): Путь к изображению
-        
-    Returns:
-        numpy.ndarray: Обработанное изображение
+    Предобработка изображения для лучшего распознавания OCR.
+    Принимает байты из uploaded_file.getvalue()
     """
-    # Загружаем изображение
-    img = cv2.imread(image_path)
+    # Конвертируем байты в numpy-массив
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
     if img is None:
-        raise ValueError(f"Не удалось загрузить изображение: {image_path}")
-    
-    # Конвертируем в градации серого
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    
-    # Применяем адаптивный порог для удаления теней
-    # Параметры: blockSize=11 (размер окрестности), C=2 (константа вычитания)
-    adaptive_thresh = cv2.adaptiveThreshold(
-        gray, 
-        255, 
-        cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-        cv2.THRESH_BINARY, 
-        11, 
-        2
-    )
-    
-    # Дополнительная обработка для улучшения качества
-    # Уменьшение шума
-    denoised = cv2.medianBlur(adaptive_thresh, 3)
-    
-    # Морфологические операции для улучшения контуров символов
-    kernel = np.ones((2, 2), np.uint8)
-    processed = cv2.morphologyEx(denoised, cv2.MORPH_CLOSE, kernel)
-    
-    return processed
+        raise ValueError("Не удалось прочитать изображение")
 
-def save_processed_image(processed_img, output_path):
-    """
-    Сохраняет обработанное изображение
-    
-    Args:
-        processed_img (numpy.ndarray): Обработанное изображение
-        output_path (str): Путь для сохранения
-    """
-    cv2.imwrite(output_path, processed_img)
+    # 1. Увеличиваем контраст и яркость
+    img = cv2.convertScaleAbs(img, alpha=1.4, beta=30)
+
+    # 2. В серый + удаление шума
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    gray = cv2.medianBlur(gray, 3)
+
+    # 3. Адаптивный порог — лучший для печатей и почерка
+    thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                   cv2.THRESH_BINARY_INV, 11, 2)
+
+    # 4. Лёгкое размытие для сглаживания
+    thresh = cv2.GaussianBlur(thresh, (3, 3), 0)
+
+    # Возвращаем PIL Image (EasyOCR любит PIL)
+    return Image.fromarray(thresh)
