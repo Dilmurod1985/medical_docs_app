@@ -3,3 +3,4 @@ easyocr
 pandas
 opencv-python-headless
 openpyxl
+python-dateutil
