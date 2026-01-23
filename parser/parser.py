@@ -1,43 +1,90 @@
 import re
-from datetime import datetime
-from dateutil.relativedelta import relativedelta
+from datetime import datetime, timedelta
 
-class MedicalDocumentParser:
-    def __init__(self):
-        pass
+def parse_medical_book_text(full_text):
+    """
+    Умный парсер текста из медкнижки.
+    Возвращает словарь с заполненными полями.
+    """
+    result = {
+        "ИД сотрудника": "Не найдено",
+        "ФИО": "Не найдено",
+        "Статус медосмотра": "Не определён",
+        "Дата медосмотра": "Не найдено",
+        "След. Дата медосмотра": "Не рассчитано",
+        "Серия": "Не найдено",
+        "Номер": "Не найдено",
+        "Выдано": "Не найдено",
+        "Дата выдачи": "Не найдено",
+        "Дата начала действия": "Не найдено",
+        "Дата истечения": "Не найдено"
+    }
 
-    def parse(self, ocr_data):
-        # Объединяем весь найденный текст в одну строку
-        full_text = " ".join([item['text'] for item in ocr_data])
-        
-        # 1. Поиск ФИО (ищем слова с заглавной буквы, исключая служебные слова)
-        fio_match = re.search(r'([А-ЯЁ][а-яё\-]+\s+[А-ЯЁ][а-яё\-]+(?:\s+[А-ЯЁ][а-яё\-]+)?)', full_text)
-        
-        # 2. Поиск ИД и Номера (группы по 5-6 цифр)
-        numbers = re.findall(r'(\d{5,6})', full_text)
-        id_emp = numbers[0] if len(numbers) > 0 else ""
-        doc_num = numbers[1] if len(numbers) > 1 else id_emp
+    # Нормализация текста
+    text = full_text.lower().replace("ё", "е").replace("\n", " ")
 
-        # 3. Поиск всех дат (форматы 23.01.2026, 23/01/26 и т.д.)
-        dates = re.findall(r'(\d{2}[.\/]\d{2}[.\/]\d{2,4})', full_text)
-        
-        exam_date = dates[0] if len(dates) > 0 else "Не найдено"
-        next_visit = "Не рассчитано"
+    # 1. ФИО (рус/узб): имя + фамилия + отчество/инициалы
+    fio_pattern = r'(?:[а-яa-z]+\s+){1,4}[а-яa-z]+(?:\s+[а-яa-z]+\.?)?'
+    fio_match = re.search(fio_pattern, text)
+    if fio_match:
+        result["ФИО"] = fio_match.group(0).strip().title()
 
-        if exam_date != "Не найдено":
+    # 2. ИД сотрудника (часто 7–14 цифр или с буквами)
+    id_patterns = [
+        r'(?:ид|id|номер|№|№№)\s*[:№]?\s*([a-zа-я0-9-]{5,15})',
+        r'\b(\d{7,14})\b'
+    ]
+    for pattern in id_patterns:
+        match = re.search(pattern, text)
+        if match:
+            result["ИД сотрудника"] = match.group(1).strip()
+            break
+
+    # 3. Дата медосмотра (рядом с ключевыми словами)
+    date_patterns = [
+        r'(?:осмотр|кўрик|пройден|дата|от|протокол|заключение|медосмотр)\s*(?:от\s*)?(\d{1,2}[./]\d{1,2}[./]\d{2,4})',
+        r'(\d{1,2}[./]\d{1,2}[./]\d{2,4})\s*(?:г\.|г)?'
+    ]
+    for pattern in date_patterns:
+        match = re.search(pattern, text)
+        if match:
+            date_str = match.group(1)
             try:
-                # Чистим дату и считаем +6 месяцев
-                clean_date = exam_date.replace('/', '.')
-                fmt = '%d.%m.%y' if len(clean_date) < 10 else '%d.%m.%Y'
-                dt = datetime.strptime(clean_date, fmt)
-                next_visit = (dt + relativedelta(months=6)).strftime('%d.%m.%Y')
+                # Пробуем разные форматы
+                for fmt in ["%d.%m.%Y", "%d/%m/%Y", "%d.%m.%y", "%d/%m/%y"]:
+                    try:
+                        date_obj = datetime.strptime(date_str, fmt)
+                        if date_obj.year < 2000:
+                            date_obj = date_obj.replace(year=date_obj.year + 2000)
+                        result["Дата медосмотра"] = date_obj.strftime("%d.%m.%Y")
+                        next_date = date_obj + timedelta(days=183)  # ≈6 месяцев
+                        result["След. Дата медосмотра"] = next_date.strftime("%d.%m.%Y")
+                        break
+                    except ValueError:
+                        continue
             except:
                 pass
+            if result["Дата медосмотра"] != "Не найдено":
+                break
 
-        return {
-            "id": id_emp,
-            "fio": fio_match.group(1) if fio_match else "Не найдено",
-            "exam_date": exam_date,
-            "next_date": next_visit,
-            "doc_num": doc_num
-        }
+    # 4. Статус (годен/не годен)
+    if any(word in text for word in ["годен", "годен до", "годен", "здоров"]):
+        result["Статус медосмотра"] = "Годен"
+    elif any(word in text for word in ["не годен", "негоден", "не здоров"]):
+        result["Статус медосмотра"] = "Не годен"
+
+    # 5. Серия и номер (часто рядом)
+    series_match = re.search(r'(?:серия|сер)\s*([а-яa-z0-9]{2,6})', text)
+    if series_match:
+        result["Серия"] = series_match.group(1).upper()
+
+    number_match = re.search(r'(?:номер|№)\s*(\d{6,12})', text)
+    if number_match:
+        result["Номер"] = number_match.group(1)
+
+    # 6. Выдано / кем
+    issued_match = re.search(r'(?:выдано|кем|медпункт|поликлиника)\s*([а-яa-z0-9\s\-.,]+)', text)
+    if issued_match:
+        result["Выдано"] = issued_match.group(1).strip().title()
+
+    return result
