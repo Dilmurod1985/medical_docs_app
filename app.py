@@ -67,15 +67,13 @@ if uploaded_files:
 
     status_text.text("Обработка завершена!")
 
-   if results:
-    # Показываем таблицу
+ if results:
     df = pd.DataFrame(results)
     st.subheader("Результаты")
     st.dataframe(df)
 
-    # Скачивание Excel
     exporter = ExcelExporter()
-    excel_data = exporter.export_to_excel(df)  # ← df здесь уже существует
+    excel_data = exporter.export_to_excel(df)
 
     st.download_button(
         label="Скачать Excel отчет",
@@ -83,6 +81,9 @@ if uploaded_files:
         file_name="medical_books_report.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+else:
+    st.info("Загрузите хотя бы одно фото для обработки")
+
 
 
 
