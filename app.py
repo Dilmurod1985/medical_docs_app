@@ -36,31 +36,29 @@ if uploaded_files:
     progress_bar = st.progress(0)
     status_text = st.empty()
 
+    results = []
+
     for idx, uploaded_file in enumerate(uploaded_files):
         status_text.text(f"Обработка {idx+1}/{len(uploaded_files)}: {uploaded_file.name}")
 
         try:
-            # Получаем байты файла
+            # Байты файла
             bytes_data = uploaded_file.getvalue()
 
-            # Предобработка изображения
+            # Предобработка
             processed_img = preprocess_image(bytes_data)
 
             # OCR
             reader = get_ocr_reader()
             raw_text = extract_text_from_image(reader, processed_img)
 
-            # Отладка — показываем, что увидел OCR
-            if idx == 0:  # показываем только для первого файла, чтобы не засорять экран
-                st.write("Извлечённый текст (первый файл):")
-                st.text_area("Текст", raw_text, height=150)
+            # Отладка — показываем текст (очень полезно!)
+            st.write(f"Текст из {uploaded_file.name}:")
+            st.text_area("Извлечённый текст", raw_text, height=120, key=f"text_{idx}")
 
             # Парсинг
             parsed_data = parse_medical_text(raw_text)
-
-            # Добавляем имя файла
             parsed_data["Файл"] = uploaded_file.name
-
             results.append(parsed_data)
 
         except Exception as e:
@@ -72,12 +70,10 @@ if uploaded_files:
     status_text.text("Обработка завершена!")
 
     if results:
-        # Таблица результатов
         df = pd.DataFrame(results)
-        st.subheader("Результаты обработки")
+        st.subheader("Результаты")
         st.dataframe(df)
 
-        # Экспорт в Excel
         exporter = ExcelExporter()
         excel_data = exporter.export_to_excel(df)
 
@@ -87,7 +83,10 @@ if uploaded_files:
             file_name="медкнижки_отчёт.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+        else:
+            st.info("Не удалось обработать ни один файл")
     else:
         st.info("Загрузите хотя бы одно фото для обработки.")
 else:
     st.info("Загрузите фото медкнижек для начала работы.")
+
