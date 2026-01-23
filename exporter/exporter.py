@@ -1,25 +1,24 @@
 import pandas as pd
-from typing import List, Dict, Any
-import os
-from datetime import datetime
+import io
 
 class ExcelExporter:
     def __init__(self):
-        """
-        Инициализация экспортера в Excel
-        """
         pass
-    
-    def export_to_excel(self, data: List[Dict], output_path: str, sheet_name: str = 'Medical_Data') -> bool:
-        try:
-            df = pd.DataFrame(data)
-            df.to_excel(output_path, index=False, sheet_name=sheet_name)
-            return True
-        except Exception:
-            return False
-    
-    def export_medical_documents(self, medical_data: List[Dict], output_path: str) -> bool:
-        return self.export_to_excel(medical_data, output_path)
-    
-    def create_summary_report(self, medical_data: List[Dict], output_path: str) -> bool:
-        return self.export_to_excel(medical_data, output_path, sheet_name='Summary')
+
+    def export_to_excel(self, df: pd.DataFrame):
+        """
+        Преобразует DataFrame в байтовый поток Excel файла.
+        """
+        output = io.BytesIO()
+        # Используем движок xlsxwriter для создания файла
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, index=False, sheet_name='Медосмотры')
+            
+            # Настройка ширины колонок для красоты
+            workbook = writer.book
+            worksheet = writer.sheets['Медосмотры']
+            for i, col in enumerate(df.columns):
+                column_len = max(df[col].astype(str).str.len().max(), len(col)) + 2
+                worksheet.set_column(i, i, column_len)
+        
+        return output.getvalue()
