@@ -13,7 +13,7 @@ sys.path.append(str(Path(__file__).parent))
 from utils.image_preprocessing import preprocess_image
 from ocr.ocr_engine import OCREngine
 from parser.parser import MedicalDocumentParser
-from exporter.exporter import ExcelExporter
+from exporter import ExcelExporter
 
 # Настройка страницы
 st.set_page_config(
@@ -295,5 +295,6 @@ st.markdown(
     "</div>",
     unsafe_allow_html=True
 )
+
 
 
