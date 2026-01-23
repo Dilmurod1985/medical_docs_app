@@ -6,7 +6,7 @@ import pandas as pd
 # Импортируем свои модули
 from utils.image_preprocessing import preprocess_image
 from ocr.ocr_engine import get_ocr_reader, extract_text_from_image
-from parser.medical_parser import parse_medical_text
+from parser.parser import MedicalDocumentParser
 from exporter.excel_exporter import create_excel_file
 
 st.set_page_config(
@@ -78,3 +78,4 @@ if uploaded_files:
             file_name="medical_books_report.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
+
