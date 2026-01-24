@@ -14,36 +14,59 @@ def load_ocr():
 
 reader = load_ocr()
 
-files = st.file_uploader("Загрузите фото документов", accept_multiple_files=True)
+# Инициализация списка
+if 'final_rows' not in st.session_state:
+    st.session_state.final_rows = []
 
-if files:
-    all_results = []
-    for f in files:
-        with st.spinner(f'Обработка {f.name}...'):
-            img_proc = preprocess_for_ocr(f.getvalue())
+with st.sidebar:
+    st.header("📂 Загрузка")
+    uploaded = st.file_uploader("Загрузите фото", accept_multiple_files=True)
+    if st.button("🗑 Очистить всё"):
+        st.session_state.final_rows = []
+        st.rerun()
+
+# --- ОБРАБОТКА С КРОПОМ ---
+if uploaded and len(uploaded) != len(st.session_state.final_rows):
+    processed_data = []
+    for f in uploaded:
+        with st.spinner(f'Читаем нижнюю часть {f.name}...'):
+            img_pill = preprocess_for_ocr(f.getvalue())
+            w, h = img_pill.size
             
-            # --- ТВОЯ ИДЕЯ С КРОПОМ ---
-            w, h = img_proc.size
-            # Обрезаем: берем только нижнюю часть (60% сверху отрезаем)
-            cropped_img = img_proc.crop((0, h * 0.5, w, h)) 
+            # ТВОЙ КРОП: Нижние 40% (где серия и номер)
+            cropped = img_pill.crop((0, h * 0.6, w, h)) 
             
-            # Распознаем текст на обрезанном фото (точность будет выше)
-            raw_text_list = reader.readtext(np.array(cropped_img), detail=0)
-            full_text = " ".join(raw_text_list)
-            
-            # Парсим данные
-            data = parse_medical_book_text(full_text)
+            # OCR только на кропнутой части
+            raw_text = reader.readtext(np.array(cropped), detail=0)
+            data = parse_medical_book_text(" ".join(raw_text))
             data["Файл"] = f.name
-            all_results.append(data)
+            processed_data.append(data)
+    st.session_state.final_rows = processed_data
 
-    # Отображение таблицы
-    if all_results:
-        df = pd.DataFrame(all_results)
-        st.subheader("📋 Данные из нижней части документа (Серия, Номер, Даты)")
-        edited_df = st.data_editor(df, use_container_width=True, hide_index=True)
+# --- ИНТЕРФЕЙС ---
+if st.session_state.final_rows:
+    col_t, col_i = st.columns([1.2, 0.8])
+    
+    with col_i:
+        sel = st.selectbox("Для проверки ФИО:", [r['Файл'] for r in st.session_state.final_rows])
+        curr_f = next(f for f in uploaded if f.name == sel)
+        st.image(curr_f, use_container_width=True) # Показываем целое фото для проверки ФИО
+
+    with col_t:
+        st.subheader("📝 Данные (Серия, Номер и Даты считаны автоматически)")
+        df = pd.DataFrame(st.session_state.final_rows)
         
-        # Кнопка Excel
+        # Названия колонок как в твоем образце
+        df_display = df.rename(columns={
+            "id": "ИД сотрудника", "fio": "ФИО (впишите вручную)", 
+            "seriya": "Серия документа", "num_doc": "Номер документа",
+            "date_osm": "Дата осмотра", "next_osm": "След. осмотр"
+        })
+        
+        edited_df = st.data_editor(df_display, use_container_width=True, hide_index=True)
+        
+        # Сохранение в Excel
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
             edited_df.drop(columns=['Файл']).to_excel(writer, index=False)
-        st.download_button("📥 Скачать Excel", buffer.getvalue(), file_name="med_data.xlsx")
+        st.download_button("📥 Скачать Excel (11 колонок)", buffer.getvalue(), file_name="med_report.xlsx")
