@@ -12,7 +12,7 @@ st.title("🏥 Система медосмотров")
 
 @st.cache_resource
 def load_ocr():
-    return easyocr.Reader(['ru', 'uz'])
+    return easyocr.Reader(['ru', 'en'])
 
 reader = load_ocr()
 
@@ -49,3 +49,4 @@ if files:
         
         st.download_button("📥 Скачать Excel отчет", data=buffer.getvalue(), 
                            file_name="report.xlsx", mime="application/vnd.ms-excel")
+
