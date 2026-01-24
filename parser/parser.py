@@ -1,47 +1,42 @@
 import re
 from datetime import datetime, timedelta
 
-def parse_medical_book_text(full_text):
-    text = " ".join(full_text.split())
-    # Убираем лишние символы, оставляем цифры и буквы для поиска серии
-    text_clean = re.sub(r'[^a-zA-Z0-9а-яА-ЯёЁ.\s\-]', '', text)
+def parse_medical_book_text(text):
+    # Очищаем текст от лишних пробелов для лучшего поиска
+    text_clean = " ".join(text.split())
     
-    res = {
-        "id": "", "fio": "", "status": "годен", "date_osm": "", "next_osm": "",
-        "seriya": "TK", "num_doc": "", "vidano": "Тиббий кўрик МЧЖ",
-        "date_vidano": "", "date_start": "", "date_end": ""
+    result = {
+        "id": "Не найдено", "fio": "Не найдено", "status": "годен",
+        "date_osm": "Не найдено", "next_osm": "Не рассчитано",
+        "seriya": "Не найдено", "num_doc": "Не найдено",
+        "vidano": "Тиббий кўрик МЧЖ", "date_vidano": "Не найдено"
     }
 
-    # 1. Ищем серию (MT или TK)
-    ser_match = re.search(r'\b(MT|TK|МТ|ТК)\b', text_clean.upper())
-    if ser_match:
-        res["seriya"] = ser_match.group(1).replace('МТ', 'MT').replace('ТК', 'TK')
+    # 1. Серия (Seriyasi / Серия)
+    series_match = re.search(r'(?:seriyasi|серия|seriya)\s*([A-Z0-9]{2,4})', text_clean, re.I)
+    if series_match:
+        result["seriya"] = series_match.group(1).replace(" ", "")
 
-    # 2. Ищем ВСЕ группы цифр (от 5 до 8 знаков)
-    all_numbers = re.findall(r'\b\d{5,8}\b', text_clean)
-    
-    if len(all_numbers) >= 2:
-        # Обычно номер документа (7 цифр) идет раньше ИД (6 цифр)
-        res["num_doc"] = all_numbers[0] 
-        res["id"] = all_numbers[-1]
-    elif len(all_numbers) == 1:
-        res["id"] = all_numbers[0]
+    # 2. Номер (Raqami / Номер)
+    number_match = re.search(r'(?:raqami|номер|number)\s*(\d{5,8})', text_clean, re.I)
+    if number_match:
+        result["num_doc"] = number_match.group(1)
 
-    # 3. Ищем даты
-    dates = re.findall(r'(\d{2}[. ]\d{2}[. ]\d{2,4})', text_clean)
+    # 3. Даты (Выдача / Осмотр)
+    # Ищем даты в формате ДД.ММ.ГГГГ или ДД.ММ.ГГ
+    dates = re.findall(r'(\d{1,2}[./]\d{1,2}[./]\d{2,4})', text_clean)
     if dates:
-        d = dates[0].replace(' ', '.')
-        res["date_osm"] = res["date_vidano"] = res["date_start"] = d
+        clean_dates = [d.replace('/', '.') for d in dates]
+        result["date_osm"] = clean_dates[0]
+        result["date_vidano"] = clean_dates[0]
         try:
-            dt = datetime.strptime(d, "%d.%m.%Y" if len(d) > 8 else "%d.%m.%y")
-            next_d = (dt + timedelta(days=182)).strftime("%d.%m.%Y")
-            res["next_osm"] = res["date_end"] = next_d
+            dt = datetime.strptime(clean_dates[0], "%d.%m.%Y" if len(clean_dates[0]) > 8 else "%d.%m.%y")
+            result["next_osm"] = (dt + timedelta(days=182)).strftime("%d.%m.%Y")
         except: pass
 
-    # 4. Попытка вытащить ФИО (слова с большой буквы)
-    words = text.split()
-    names = [w for w in words if len(w) > 3 and w[0].isupper() and w.lower() not in ["тиббий", "мчж", "серия"]]
+    # 4. ФИО (Попытка найти слова с Большой буквы)
+    names = [w for w in text_clean.split() if len(w) > 4 and w[0].isupper() and w.lower() not in ["seriyasi", "raqami", "tibbiyot", "kitobchasi"]]
     if len(names) >= 2:
-        res["fio"] = " ".join(names[:3])
-            
-    return res
+        result["fio"] = " ".join(names[:3])
+
+    return result
