@@ -2,45 +2,44 @@ import re
 from datetime import datetime, timedelta
 
 def parse_medical_book_text(text):
-    # Очищаем текст для поиска
-    text_clean = " ".join(text.split())
+    text = text.lower().replace("ё", "е").replace("\n", " ").strip()
     
     result = {
-        "id": "Не найдено", 
-        "fio": "Впишите вручную", 
-        "status": "годен",
-        "date_osm": "Не найдено", 
-        "next_osm": "Не рассчитано",
-        "seriya": "Не найдено", 
-        "num_doc": "Не найдено",
-        "vidano": "Тиббий кўрик МЧЖ",
-        "date_vidano": "Не найдено",
-        "date_start": "Не найдено",
-        "date_end": "Не рассчитано"
+        "id": "Не найдено", "fio": "Впишите вручную", "status": "Не определён",
+        "date_osm": "Не найдено", "next_osm": "Не рассчитано",
+        "seriya": "Не найдено", "num_doc": "Не найдено", "date_vidano": "Не найдено"
     }
 
-    # 1. Серия и Номер (Твоя логика)
-    # Ищем SERIYASI -> MT или TK
-    series_match = re.search(r'(?:seriyasi|серия|seriya)\s*([A-Z]{2})', text_clean, re.I)
+    # 1. ФИО (Твои шаблоны)
+    fio_match = re.search(r'(?:ism|lavozimi|famil|familiya|otasi|full name)\s*[: ]*([а-яa-z\s]{5,})', text, re.I)
+    if fio_match:
+        result["fio"] = fio_match.group(1).title().strip()
+
+    # 2. Серия (MT или TK)
+    series_match = re.search(r'(?:seriyasi|серия|seriya|mt|tk)\s*([a-z]{1,2})', text, re.I)
     if series_match:
         result["seriya"] = series_match.group(1).upper()
-    
-    # Ищем RAQAMI -> 057304
-    number_match = re.search(r'(?:raqami|номер|number)\s*(\d{5,7})', text_clean, re.I)
+
+    # 3. Номер (5-6 цифр после raqami)
+    number_match = re.search(r'(?:raqami|номер|number)\s*(\d{5,6})', text, re.I)
     if number_match:
         result["num_doc"] = number_match.group(1)
-        result["id"] = number_match.group(1) # Используем как ИД для твоей таблицы
+        result["id"] = number_match.group(1)
 
-    # 2. Даты (Выдача / Осмотр)
-    # Ищем даты типа 19.10.2024
-    dates = re.findall(r'(\d{2}[./]\d{2}[./]\d{2,4})', text_clean)
-    if dates:
-        d = dates[0].replace('/', '.')
-        result["date_osm"] = result["date_vidano"] = result["date_start"] = d
+    # 4. Даты и расчет +6 месяцев (по твоей инструкции)
+    date_match = re.search(r'(\d{1,2}[./-]\d{1,2}[./-]\d{2,4})', text)
+    if date_match:
+        d_str = date_match.group(1).replace('/', '.').replace('-', '.')
+        result["date_osm"] = result["date_vidano"] = d_str
         try:
-            dt = datetime.strptime(d, "%d.%m.%Y" if len(d) > 8 else "%d.%m.%y")
-            next_d = (dt + timedelta(days=182)).strftime("%d.%m.%Y")
-            result["next_osm"] = result["date_end"] = next_d
+            # Парсим дату и прибавляем 182 дня (полгода)
+            date_obj = datetime.strptime(d_str, "%d.%m.%Y" if len(d_str) > 8 else "%d.%m.%y")
+            next_date = date_obj + timedelta(days=182)
+            result["next_osm"] = next_date.strftime("%d.%m.%Y")
         except: pass
+
+    # 5. Статус
+    if any(word in text for word in ["goden", "годен", "yil", "year"]):
+        result["status"] = "Годен"
 
     return result
