@@ -2,29 +2,42 @@ import re
 from datetime import datetime, timedelta
 
 def parse_medical_book_text(full_text):
-    text_lower = full_text.lower()
+    text = " ".join(full_text.split())
+    text_low = text.lower()
+    
+    # Изначально все поля пустые
     res = {
-        "id": "Не найдено", "fio": "Не найдено", 
-        "status": "годен", "date": "Не найдено", "next": "Не рассчитано"
+        "id": "", "fio": "", "status": "годен", "date": "", "next": "",
+        "seriya": "TK", "num_doc": "", "vidano": "Тиббий кўрик МЧЖ",
+        "date_vidano": "", "date_start": "", "date_end": ""
     }
 
-    # Ищем ИД (6 цифр)
-    id_match = re.search(r'(\d{6})', full_text)
+    # 1. ИД сотрудника (6 цифр)
+    id_match = re.search(r'(\d{6})', text)
     if id_match: res["id"] = id_match.group(1)
 
-    # Ищем ФИО (слова с большой буквы)
-    fio_match = re.search(r'([А-ЯЁ][а-яё\-]+\s+[А-ЯЁ][а-яё\-]+(?:\s+[А-ЯЁ][а-яё\-]+)?)', full_text)
-    if fio_match: res["fio"] = fio_match.group(1)
+    # 2. ФИО (ищем заглавные буквы)
+    names = [w for w in text.split() if w[0].isupper() and len(w) > 3 
+             and w.lower() not in ["тиббий", "кўрик", "мчж", "санитария", "тиббиёт"]]
+    if len(names) >= 2: res["fio"] = " ".join(names[:3])
 
-    # Ищем дату и считаем +6 месяцев
-    date_match = re.search(r'(\d{2}[.\/]\d{2}[.\/]\d{2,4})', text_lower)
-    if date_match:
-        d_str = date_match.group(1).replace('/', '.')
-        res["date"] = d_str
+    # 3. Номер документа (часто совпадает с ИД или идет отдельно)
+    num_match = re.findall(r'(\d{5,6})', text)
+    if len(num_match) > 1: res["num_doc"] = num_match[1]
+
+    # 4. Поиск всех дат в тексте
+    dates = re.findall(r'(\d{2}[.\s\-/]\d{2}[.\s\-/]\d{2,4})', text)
+    if dates:
+        clean_dates = [re.sub(r'[\s\-/]', '.', d) for d in dates]
+        res["date"] = clean_dates[0] # Первая дата - осмотр
+        res["date_vidano"] = clean_dates[0]
+        res["date_start"] = clean_dates[0]
+        
         try:
-            fmt = "%d.%m.%Y" if len(d_str) > 8 else "%d.%m.%y"
-            dt = datetime.strptime(d_str, fmt)
+            fmt = "%d.%m.%Y" if len(clean_dates[0]) > 8 else "%d.%m.%y"
+            dt = datetime.strptime(clean_dates[0], fmt)
             res["next"] = (dt + timedelta(days=182)).strftime("%d.%m.%Y")
+            res["date_end"] = res["next"]
         except: pass
-    
+            
     return res
