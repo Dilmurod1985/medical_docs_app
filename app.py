@@ -4,15 +4,12 @@ import numpy as np
 import easyocr
 import io
 from PIL import Image
-
-# Импортируем твои модули
 from utils.image_preprocessing import preprocess_for_ocr
 from parser.parser import parse_medical_book_text
 
 st.set_page_config(page_title="Medical Scanner", layout="wide")
 st.title("🏥 Система медосмотров")
 
-# Загрузка OCR
 @st.cache_resource
 def load_ocr():
     return easyocr.Reader(['ru', 'uz'])
@@ -24,11 +21,11 @@ files = st.file_uploader("Загрузите фото", accept_multiple_files=Tr
 if files:
     all_data = []
     for f in files:
-        with st.spinner(f'Читаем {f.name}...'):
+        with st.spinner(f'Обработка {f.name}...'):
             try:
                 img_proc = preprocess_for_ocr(f.getvalue())
-                raw_text = reader.readtext(np.array(img_proc), detail=0)
-                full_text = " ".join(raw_text)
+                text_list = reader.readtext(np.array(img_proc), detail=0)
+                full_text = " ".join(text_list)
                 data = parse_medical_book_text(full_text)
                 
                 all_data.append({
@@ -43,16 +40,12 @@ if files:
 
     if all_data:
         df = pd.DataFrame(all_data)
-        st.table(df)
+        st.table(df) # Показываем таблицу на экране
         
-        # Простой экспорт в Excel без внешних файлов exporter
+        # Создаем Excel файл в памяти
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Sheet1')
+            df.to_excel(writer, index=False)
         
-        st.download_button(
-            label="📥 Скачать Excel",
-            data=buffer.getvalue(),
-            file_name="report.xlsx",
-            mime="application/vnd.ms-excel"
-        )
+        st.download_button("📥 Скачать Excel отчет", data=buffer.getvalue(), 
+                           file_name="report.xlsx", mime="application/vnd.ms-excel")
