@@ -34,6 +34,8 @@ if uploaded_files:
     progress_bar = st.progress(0)
     status_text = st.empty()
 
+    results = []
+
     for idx, uploaded_file in enumerate(uploaded_files):
         status_text.text(f"Обработка {idx+1}/{len(uploaded_files)}: {uploaded_file.name}")
 
@@ -43,9 +45,9 @@ if uploaded_files:
             reader = get_ocr_reader()
             raw_text = extract_text_from_image(reader, processed_img)
 
-            # Отладка — показываем, что OCR вернул
-            st.write(f"Извлечённый текст из {uploaded_file.name}:")
-            st.text_area("Текст", raw_text, height=150, key=f"text_{idx}")
+            # Отладка — сразу видно, что OCR вернул
+            st.write(f"Текст из файла {uploaded_file.name}:")
+            st.text_area("Извлечённый текст", raw_text, height=150, key=f"ocr_text_{idx}")
 
             parsed_data = parse_medical_text(raw_text)
             parsed_data["Файл"] = uploaded_file.name
@@ -61,7 +63,7 @@ if uploaded_files:
 
     if results:
         df = pd.DataFrame(results)
-        st.subheader("Результаты")
+        st.subheader("Результаты обработки")
         st.dataframe(df)
 
         exporter = ExcelExporter()
