@@ -5,6 +5,7 @@ pillow
 numpy
 pandas
 openpyxl
-torch --index-url https://download.pytorch.org/whl/cpu  # если используешь CPU-версию
-torchvision --index-url https://download.pytorch.org/whl/cpu
-torchaudio --index-url https://download.pytorch.org/whl/cpu
+xlsxwriter
+torch
+torchvision
+torchaudio
